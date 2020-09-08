@@ -61,3 +61,6 @@ https://github.com/justadudewhohacks/face-api.js#running-the-examples
 
 # For more information, please drop me an email: 
 mayur@cloint.com
+
+## We love your Contributions:
+Please submit a Pull request
