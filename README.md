@@ -1,4 +1,4 @@
-## Welcome to Cloint Vision's Face Recognition based Employee Attendance System
+## Cloint's ClointVision Face Recognition based Employee Attendance System
 
 <img src="https://1.bp.blogspot.com/-6PReDvLHoKI/X1Wqasj7ySI/AAAAAAAAAQs/Jx2vYKipYkQ4ezCcpQWS2B4pIHrqV12OgCLcBGAsYHQ/s320/Cloint_GIF.gif">
 
