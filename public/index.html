@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html>
+  <head>    
+    <title>Cloint Vision - Home</title>
+    <meta charset="utf-8">
+     <link rel="shortcut icon" href="https://cloint-vision.appspot.com/favicon.ico" async defer>
+    <link rel="icon" href="https://cloint-vision.appspot.com/favicon.ico" type="image/x-icon" async defer>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script type="text/javascript" src="webcam.min.js"></script>
+    <script src="./face-api.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+    <script src="./bootbox.min.js"></script>
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+<script>
+
+!function(){function e(t,o){return n?void(n.transaction("s").objectStore("s").get(t).onsuccess=function(e){var t=e.target.result&&e.target.result.v||null;o(t)}):void setTimeout(function(){e(t,o)},100)}var t=window.indexedDB||window.mozIndexedDB||window.webkitIndexedDB||window.msIndexedDB;if(!t)return void console.error("indexDB not supported");var n,o={k:"",v:""},r=t.open("d2",1);r.onsuccess=function(e){n=this.result},r.onerror=function(e){console.error("indexedDB request error"),console.log(e)},r.onupgradeneeded=function(e){n=null;var t=e.target.result.createObjectStore("s",{keyPath:"k"});t.transaction.oncomplete=function(e){n=e.target.db}},window.ldb={get:e,set:function(e,t){o.k=e,o.v=t,n.transaction("s","readwrite").objectStore("s").put(o)}}}();
+
+selfie_count=0;
+var pname ="";
+var count = parseInt(window.localStorage.getItem("count"));
+if (!count){
+  count =0;
+}
+
+toTitleCase=function toTitleCase(str) {
+  return str.replace(
+      /\w\S*/g,
+      function(txt) {
+          return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+      }
+  );
+}
+</script>
+
+
+<script>
+//enable tool tip text
+  $(document).ready(function(){
+    $('[data-toggle="tooltip"]').tooltip();
+  });
+
+  //disbale right click 
+  $(document).ready(function(){
+     $(document).bind("contextmenu",function(e){
+      bootbox.alert({
+        message: "Sorry, Right click is not allowed !",
+        className: 'rubberBand animated'
+      });
+      return false;
+        
+     });
+  });
+
+  document.onkeydown = function(e) {
+    if (e.ctrlKey && 
+        (e.keyCode === 67 || 
+         e.keyCode === 86 || 
+         e.keyCode === 85 || 
+         e.keyCode === 117)) {
+          bootbox.alert({
+            message: "Sorry, this is not allowed !",
+            className: 'rubberBand animated'
+          });
+        return false;
+    } else {
+        return true;
+    }
+};
+</script>
+
+
+<script>
+function loadHTMLTable(){
+  let unique_count = parseInt(localStorage.getItem("unique_count"));
+
+  if(unique_count > 0){
+    document.getElementById("spans").setAttribute("display",'show');
+  } 
+  else{
+    document.getElementById("spans").setAttribute("hidden",true);
+  }
+
+  if(!unique_count)
+  {
+    unique_count = 0 ;
+    localStorage.setItem("unique_count",unique_count);
+  }
+  else{
+    //console.log(unique_count);
+    let table = document.getElementById("master_list");
+    table.innerHTML = "";
+    
+    let row = "";
+    let cell1 = "";
+    let cell2 = "";
+    let sno = 1;
+    let key = "";
+    let value = "";
+  for ( let i = 0; i < localStorage.length; i++ ) {
+    key = localStorage.key( i );
+    //console.log(key);
+    if (key != "sid" && key != "at_url" && key != "count" && key != "unique_count"){
+    
+    if(key <= unique_count){
+    value = localStorage.getItem( localStorage.key( i ) );
+    
+    row = table.insertRow(-1);
+  
+    cell1 = row.insertCell(0);
+    cell2 = row.insertCell(1);
+  
+    cell1.innerHTML = sno;
+    cell2.innerHTML = value;
+    sno = sno + 1;
+    }
+    }
+  }
+  }
+}
+
+  async function authenticate() {
+    if(!window.localStorage["sid"]){
+    return gapi.auth2.getAuthInstance()
+        .signIn({scope: "https://www.googleapis.com/auth/spreadsheets"})
+        .then(async function() { 
+          //console.log("Sign-in successful"); 
+        await loadClient();
+    },
+              function(err) { console.error("Error signing in", err); });
+  }
+}
+  async function loadClient() {
+      //console.log("Loaded");
+    gapi.client.setApiKey("AIzaSyDghGBuSE4Do8B9J4TLj04ss1M19m0Megs");
+    return gapi.client.load("https://content.googleapis.com/discovery/v1/apis/sheets/v4/rest")
+        .then(async function() { 
+          //console.log("GAPI client loaded for API");
+        if (!window.localStorage.getItem["sid"]){
+        await CreateSheet();
+        } 
+       },
+              function(err) { console.error("Error loading GAPI client for API", err); });
+  }
+  gapi.load("client:auth2", function() {
+    gapi.auth2.init({client_id: "728891554044-v9dmkdmc6olh7gj37a3mqp4a38m6eqjl.apps.googleusercontent.com"});
+  });
+
+  function CreateSheet() {
+    var spreadsheetBody = {
+      "properties": {
+          "title": "Attendance Tracker"
+        },
+    };
+
+    var request = gapi.client.sheets.spreadsheets.create({}, spreadsheetBody);
+    request.then(function(response) {
+      //console.log(response.result);
+      //console.log(response.result.spreadsheetId);
+      //console.log(response.result.spreadsheetUrl);
+      window.localStorage.setItem("sid", response.result.spreadsheetId);
+      window.localStorage.setItem("at_url", response.result.spreadsheetUrl);
+
+      document.getElementById("at_link").setAttribute("href",response.result.spreadsheetUrl);
+      document.getElementById("at_link").style.display = "show";
+      
+    }, function(reason) {
+      console.error('error: ' + reason.result.error.message);
+    });
+  }
+
+</script>
+
+</head>
+
+<style>
+#my_camera{
+ width: 100vw;
+ height: 100vh;
+ border: 1px solid black;
+}
+</style>
+<h3 align="center"><div class="container"><span class="badge badge-warning">Welcome to Cloint Vision's Face Recognition based Attendance System</span></div></h3>
+
+<table align="center">
+<tr><td colspan="2" align="center"><div  id="my_camera"></div></td></tr>
+<tr><td align="center" colspan="1"><form><input type="text" id="pname" placeholder="Enter your name here" autofocus required /></form></td>
+
+<td align="center"><button type="button" onclick="take_snapshot();" class="btn btn-primary" data-toggle="tooltip" title="One face at-a-time">Register This Face</button></td></tr>
+
+<tr>
+  <td align="center"><button id="deleteDB" class="btn btn-danger" onclick="clearDB();" data-toggle="tooltip" title="Caution ! This deletes all the stored faces">Clear Database</button></td>
+  <td align="center"><button id="launch" class="btn btn-success" onclick="launchFR();" data-toggle="tooltip" title="This Launches FR based Attendance Tracker">Start Taking Attendance</button></td>  
+</tr>
+<hr/>
+<tr>
+  <td colspan="2" align="center"><a id="at_link" href="" target="_blank">Open Attendance Tracker - Google Spreadsheet</a>
+  </td>
+</tr>
+<tr> <td colspan="2" align="center"><div class="container">
+  <h5><span id="spans" class="badge badge-info">List of Registered Employees in your Organization</span></h5>
+  <table align="center" class="table table-striped, table-responsive" id="master_list"></table>
+</div>
+</td> </tr>
+<tr>
+<td align="center" colspan="2"><a href="https://forms.gle/ocMgEi2R54BGVPyZ7" target="_blank">Please leave your comments and suggestions here</a></td>
+</tr>
+</table>
+
+<script>  
+    if(window.localStorage["at_url"]){
+      document.getElementById("at_link").setAttribute("href",window.localStorage["at_url"]);
+    } 
+    else{
+      document.getElementById("at_link").setAttribute("hidden",true);
+    }
+  </script>
+
+<table align="center" class="table-responsive" id="attendance" width="100%" height="100%"></table>
+<!-- Configure a few settings and attach camera -->
+<script language="JavaScript">
+ Webcam.set({
+  width: 500,
+  height: 480,
+  image_format: 'png' 
+ });
+ Webcam.attach('#my_camera');
+
+ Promise.all([
+ faceapi.nets.tinyFaceDetector.loadFromUri(""),
+ faceapi.nets.faceLandmark68Net.loadFromUri(""),
+ faceapi.nets.faceRecognitionNet.loadFromUri(""),
+ loadHTMLTable(),
+  ]);
+
+async function take_snapshot() { 
+pname = document.getElementById("pname").value;
+
+if (pname == "") 
+{
+bootbox.alert({
+  message: "Please enter your name !",
+  className: 'rubberBand animated'
+});
+$(document).ready(function () {
+pn=document.getElementById("pname");
+pn.focus();
+});
+}
+else{
+  var dialog = bootbox.dialog({
+    message: '<p class="text-center mb-0"><i class="fa fa-spin fa-cog"></i> Processing... please wait</p>',
+    closeButton: false
+});
+  pname = toTitleCase(pname);
+  //console.log(pname);
+  document.getElementById("pname").value = pname;
+
+ // take snapshot and get image data
+ Webcam.snap( async function(data_uri) {
+  var img = document.createElement("img");
+  img.setAttribute("width", 740);
+  img.setAttribute("height", 520);
+  img.setAttribute("src", data_uri);
+
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320,scoreThreshold : 0.6 });
+
+  let fullFaceDescriptions = await faceapi.detectSingleFace(img, options).withFaceLandmarks().withFaceDescriptor();
+
+  //console.log(fullFaceDescriptions);
+
+  if (fullFaceDescriptions){
+    selfie_count = selfie_count + 1;
+    count = count + 1;
+    window.localStorage.setItem("count", count);
+    const jsonFD = fullFaceDescriptions.descriptor;
+    const json_fd = [pname, jsonFD];
+    ldb.set(count, JSON.stringify(json_fd));
+    dialog.modal('hide');
+
+  if (selfie_count <=4) {
+  var bbox = bootbox.alert({
+      message: "Registered ! Please add some more photos with different poses",
+//      size: 'large',
+      className: 'rubberBand animated'
+  });
+
+  let found = false;
+  let unique_count = parseInt(localStorage.getItem("unique_count"));
+  let value = "";
+  for ( let i = 0; i < localStorage.length; i++ ) {
+    //key = localStorage.key( i );
+    value = localStorage.getItem( localStorage.key( i ) );
+    if(value == pname)
+    {
+      found = true;
+      break;
+    }
+  }
+  if(found==false){
+      unique_count = unique_count + 1;
+      localStorage.setItem("unique_count",unique_count);
+      localStorage.setItem(unique_count,pname);
+  }
+  loadHTMLTable();
+}
+else{
+  selfie_count = 0;
+  var bbox = bootbox.alert({
+    message: "Done ! You may start taking attendance now.. Please click on GREEN button below",
+    size: 'large',
+    className: 'rubberBand animated'
+});
+}
+}
+else{
+  dialog.modal('hide');
+  var bbox = bootbox.alert({
+    message: "Oops ! Please retake.. Ensure that your photo is cleary visible in the box",
+    size: 'large',
+    className: 'rubberBand animated'
+});
+}
+  } );
+}
+}
+
+
+
+async function launchFR(){
+
+await authenticate();
+
+var count = parseInt(window.localStorage.getItem("count"));
+console.log(count);
+if (count > 0){
+  var newTab =window.open('','_blank','height='+screen.availHeight+', width='+screen.availWidth+'channelmode=1,scrollbars=1,status=no,titlebar=0,toolbar=no,resizable=1','fullscreen=yes');
+        newTab.location = "https://cloint-vision.appspot.com/attendance.html";
+        newTab.focus();
+
+}
+else{
+  bootbox.alert({
+    message: "Please register few faces..",
+    className: 'rubberBand animated'
+});
+$(document).ready(function () {
+  pn=document.getElementById("pname");
+  pn.focus();
+  });  
+}
+}
+
+function clearDB()
+{
+  bootbox.confirm({
+    message: "This action will delete your database (all faces) ! Are you sure ?",
+    buttons: {
+        confirm: {
+            label: 'Yes',
+            className: 'btn-success'
+        },
+        cancel: {
+            label: 'No',
+            className: 'btn-danger'
+        }
+    },
+    callback: function (result) {
+        console.log(result);
+        if(result)
+        {
+          window.localStorage.setItem("count", 0);
+          window.localStorage.setItem("unique_count",0);
+          sessionStorage.setItem("sno", 0); // required in index0.html
+          labeledFaceDescriptors1 = []; //cleared
+          present_list = [];
+          sl_no = 0;
+          bootbox.alert({
+            message: "Database cleared ! You can add new faces in a while...",
+            className: 'rubberBand animated'
+        });
+        window.location.reload();
+        }
+    }
+});
+}
+
+
+</script>
+
+</html>

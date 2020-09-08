@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <title>Cloint Vision</title>
+    <style>
+      .button {
+        background-color: #4CAF50;
+        /* Green */
+        border: none;
+        color: white;
+        padding: 2px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 14px;
+        margin: 1px 1px;
+        cursor: pointer;
+      }
+
+      .button4 {
+        border-radius: 6px;
+      }
+    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <script async src="opencv.js" type="text/javascript"></script>
+    <script src="utils.js" type="text/javascript"></script>
+    <script type="text/javascript">
+
+      var netDet = undefined, netRecogn = undefined;
+      var persons = {};
+      var present_list = {};
+
+      //! [Run face detection model]
+      function detectFaces(img) {
+        console.log("Detecting Faces..");
+        var blob = cv.blobFromImage(img, 1, { width: 192, height: 144 }, [104, 117, 123, 0], false, false);
+        netDet.setInput(blob);
+        var out = netDet.forward();
+        var faces = [];
+        for (var i = 0, n = out.data32F.length; i < n; i += 7) {
+          var confidence = out.data32F[i + 2];
+          var left = out.data32F[i + 3] * img.cols;
+          var top = out.data32F[i + 4] * img.rows;
+          var right = out.data32F[i + 5] * img.cols;
+          var bottom = out.data32F[i + 6] * img.rows;
+          left = Math.min(Math.max(0, left), img.cols - 1);
+          right = Math.min(Math.max(0, right), img.cols - 1);
+          bottom = Math.min(Math.max(0, bottom), img.rows - 1);
+          top = Math.min(Math.max(0, top), img.rows - 1);
+          if (confidence > 0.5 && left < right && top < bottom) {
+            faces.push({ x: left, y: top, width: right - left, height: bottom - top })
+          }
+        }
+        blob.delete();
+        out.delete();
+        return faces;
+      };
+      //! [Run face detection model]
+      //! [Get 128 floating points feature vector]
+      function face2vec(face) {
+        var blob = cv.blobFromImage(face, 1.0 / 255, { width: 96, height: 96 }, [0, 0, 0, 0], true, false)
+        netRecogn.setInput(blob);
+        var vec = netRecogn.forward();
+        blob.delete();
+        return vec;
+      };
+      //! [Get 128 floating points feature vector]
+      //! [Recognize]
+      function recognize(face) {
+        console.log("Recognizing Faces..");
+        var vec = face2vec(face);
+        var bestMatchName = 'unknown';
+        //console.log(face);
+        var bestMatchScore = 0.8;  // Actually, the minimum is -1 but we use it as a threshold.
+        for (name in persons) {
+          var personVec = persons[name];
+          var score = vec.dot(personVec);
+          //console.log(name);
+          console.log(score);
+
+          if (score > bestMatchScore) {
+            bestMatchScore = score;
+            bestMatchName = name;
+
+            //Mark attendance
+            if (!(name in present_list)) {
+              let date = new Date();
+              let seconds = date.getSeconds();
+              let minutes = date.getMinutes();
+              let hours = date.getHours();
+              let ampm = hours >= 12 ? "PM" : "AM";
+              let arrival_time = hours + ":" + minutes + ":" + seconds + " " + ampm;
+              let table = document.getElementById("attendance");
+              let row = table.insertRow(0);
+              let cell1 = row.insertCell(0);
+              let cell2 = row.insertCell(1);
+              cell1.innerHTML = arrival_time;
+              cell2.innerHTML = name;
+              present_list[name] = arrival_time; //store in memory 
+            }
+          }
+        }
+        vec.delete();
+        return bestMatchName;
+      };
+      //! [Recognize]
+      function loadModels(callback) {
+        console.log("Loading Modules..");
+        var utils = new Utils('');
+        //var proto = 'https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy_lowres.prototxt';
+        //var weights = 'https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20180205_fp16/res10_300x300_ssd_iter_140000_fp16.caffemodel';
+        var proto = "deploy.prototxt";
+        var weights = "res10_300x300_ssd_iter_140000_fp16.caffemodel";
+        //var recognModel = 'https://raw.githubusercontent.com/pyannote/pyannote-data/master/openface.nn4.small2.v1.t7';
+        var recognModel = "openface.nn4.small2.v1.t7";
+        utils.createFileFromUrl('face_detector.prototxt', proto, () => {
+          document.getElementById('status').innerHTML = 'Please wait..';
+          utils.createFileFromUrl('face_detector.caffemodel', weights, () => {
+            document.getElementById('status').innerHTML = 'Getting Ready.. Almost Done..';
+            utils.createFileFromUrl('face_recognition.t7', recognModel, () => {
+              document.getElementById('status').innerHTML = '';
+              netDet = cv.readNetFromCaffe('face_detector.prototxt', 'face_detector.caffemodel');
+              netRecogn = cv.readNetFromTorch('face_recognition.t7');
+              //Get faces from Local Storage
+              for (var i = 0, len = localStorage.length; i < len; i++) {
+                var key = localStorage.key(i);
+                var value = localStorage[key];
+                //console.log(value);
+                var img = document.createElement("img");
+                img.setAttribute("width", 96);
+                img.setAttribute("height", 96);
+                img.setAttribute("src", value);
+                img.setAttribute("id", "myimg");
+
+                //document.body.appendChild(img);
+                var canvas = document.getElementById("myoutput");
+                //var img = document.getElementById("myimg");
+                canvas.setAttribute("width", 96);
+                canvas.setAttribute("height", 96);
+                var ctx = canvas.getContext("2d");
+
+                ctx.drawImage(img, canvas.height, canvas.width);
+                var face = new cv.Mat(canvas.height, canvas.width, cv.CV_8UC4);
+                //cv.cvtColor(face, face, cv.COLOR_RGBA2BGR);
+                cv.cvtColor(face, face, cv.COLOR_BGR2RGB);
+                cv.imshow(canvas, face);
+                persons[key] = face2vec(face).clone();
+                face.delete();
+              }
+              callback();
+            });
+          });
+        });
+      };
+      function main() {
+        // Create a camera object.
+        var output = document.getElementById('output');
+        var camera = document.createElement("video");
+        camera.setAttribute("width", output.width);
+        camera.setAttribute("height", output.height);
+        // Get a permission from user to use a camera.
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+          .then(function (stream) {
+            camera.srcObject = stream;
+            camera.onloadedmetadata = function (e) {
+              camera.play();
+            };
+          });
+        //! [Open a camera stream]
+        var cap = new cv.VideoCapture(camera);
+        var frame = new cv.Mat(camera.height, camera.width, cv.CV_8UC4);
+        var frameBGR = new cv.Mat(camera.height, camera.width, cv.CV_8UC3);
+        //! [Open a camera stream]
+
+        //! [Add a person]
+        document.getElementById('addPersonButton').onclick = function () {
+          var rects = detectFaces(frameBGR);
+          if (rects.length > 0) {
+            var face = frameBGR.roi(rects[0]);
+            var name = prompt('Say your name:');
+            persons[name] = face2vec(face).clone();
+            var canvas = document.getElementById("myoutput");
+            canvas.setAttribute("width", 96);
+            canvas.setAttribute("height", 96);
+
+            var ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            var faceResized = new cv.Mat(canvas.height, canvas.width, cv.CV_8UC3);
+
+            cv.resize(face, faceResized, { width: canvas.width, height: canvas.height });
+            cv.cvtColor(faceResized, faceResized, cv.COLOR_BGR2RGB);
+            cv.imshow(canvas, faceResized);
+            var imgData = canvas.toDataURL();
+            window.localStorage.setItem(name, imgData);
+            faceResized.delete();
+          }
+        };
+        //! [Add a person]
+        //! [Define frames processing]
+        var isRunning = false;
+        const FPS = 30;  // Target number of frames processed per second.
+        function captureFrame() {
+          var begin = Date.now();
+          cap.read(frame);  // Read a frame from camera
+          cv.cvtColor(frame, frameBGR, cv.COLOR_RGBA2BGR);
+          var faces = detectFaces(frameBGR);
+          faces.forEach(function (rect) {
+            cv.rectangle(frame, { x: rect.x, y: rect.y }, { x: rect.x + rect.width, y: rect.y + rect.height }, [0, 255, 0, 255]);
+
+            var face = frameBGR.roi(rect);
+            var name = recognize(face);
+
+            let today = new Date()
+            let curHr = today.getHours()
+            let wish = "";
+
+            if (name != "unknown") {
+              if (curHr < 12) {
+                wish = 'Good morning, ' + name;
+              } else if (curHr < 18) {
+                wish = 'Good afternoon, ' + name;
+              } else {
+                wish = 'Good evening, ' + name;
+              }
+            }
+            else {
+              wish = 'unknown';
+            }
+
+            cv.putText(frame, wish, { x: rect.x, y: rect.y }, cv.FONT_HERSHEY_SIMPLEX, 1.0, [255, 255, 255, 255]);
+          });
+
+          cv.imshow(output, frame);
+
+          // Loop this function.
+          if (isRunning) {
+            var delay = 1000 / FPS - (Date.now() - begin);
+            setTimeout(captureFrame, delay);
+          }
+        };
+        //! [Define frames processing]
+        document.getElementById('startStopButton').onclick = function toggle() {
+          if (isRunning) {
+            isRunning = false;
+            document.getElementById('startStopButton').innerHTML = 'Start';
+            document.getElementById('addPersonButton').disabled = true;
+          } else {
+            function run() {
+              isRunning = true;
+              captureFrame();
+              document.getElementById('startStopButton').innerHTML = 'Stop';
+              document.getElementById('startStopButton').disabled = false;
+              document.getElementById('addPersonButton').disabled = false;
+            }
+            if (netDet == undefined || netRecogn == undefined) {
+              document.getElementById('startStopButton').disabled = true;
+              loadModels(run);  // Load models and run a pipeline;
+            } else {
+              run();
+            }
+          }
+        };
+        document.getElementById('startStopButton').disabled = false;
+      };
+      function clearDB() {
+        let cnt = window.localStorage.length;
+        if (cnt > 0) {
+          yes_no = confirm("There are " + cnt + " face(s) stored on your computer. Are you sure you want to delete them all ?");
+          if (yes_no == true) {
+            window.localStorage.clear();
+            document.getElementById('status').innerHTML = "Database cleared. Now you can refresh this page and start registering the faces.";
+          }
+        }
+        else {
+          alert("There are no faces stored on this computer !. Please click on 'Add this face' button");
+          //document.getElementById("clearDB").disabled = true;
+        }
+      };
+      function clearAttendance() {
+        let cnt = present_list.length;
+        console.log(cnt);
+        if (cnt > 0) {
+          yes_no = confirm(cnt + " employees marked as present. Are you sure you want to clear ?");
+          if (yes_no == true) {
+            present_list = {};
+            document.getElementById('status').innerHTML = "Today's attendance is cleared. Now you can refresh this page and start taking attendance once again.";
+          }
+          else {
+            alert("Cloint Vision is waiting to welcome your employees..");
+            //document.getElementById("clearDB").disabled = true;
+          }
+        }
+      };
+
+    </script>
+  </head>
+
+  <body onload="cv['onRuntimeInitialized']=()=>{ main() }">
+    <strong>
+      <p>FREE ! <a href="https://www.cloint.com/" target="_blank">Cloint
+          LLC</a> is offering Face Recognition based Attendance over the Browser as a substitute for
+        your present
+        Bio-Metric attendance system. All your
+        data is
+        stored in your browser only. We do not collect or store the photos of your organization. Use Cloint Vision
+        attendance
+        tool and save your employees, help break the chain of COVID-19. To use this tool, just click on Start. When you
+        see your photo in the video as 'unknown, click on 'Add this face' button and enter your complete name in the
+        prompt and lol, your daily attendance will now taken from your browser!</p>
+    </strong>
+    <div class="container">
+      <div class="table-responsive">
+        <table border="1" width="100%" height="100%" class="table">
+          <tr>
+            <td style="text-align:center">
+              <button class="button button4" id="startStopButton" type="button" disabled="true">Start</button>
+            </td>
+            <td id="tdate" style="text-align:center"><strong>
+                <script>
+                  document.getElementById("tdate").innerHTML = new Date();
+                </script></strong>
+            </td>
+          </tr>
+          <tr>
+            <td style="text-align:center">
+              <div id="status"></div>
+            </td>
+            <td style="text-align:center">
+              <strong>Attendance Tracker</strong>
+            </td>
+          </tr>
+          <tr>
+            <td style="text-align:center">
+              <canvas id="output" width="640" height="420" style="max-width: 100%"></canvas>
+            </td>
+            <td style="text-align:center">
+              <table id="attendance" border="1" width="100%" height="100%">
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="text-align:center">
+              <button class="button button4" style="background-color: #008CBA;" id="addPersonButton" type="button"
+                disabled="true">Add this face</button>
+              <button class="button button4" style="background-color: #f44336;" id="clearDB" type="button"
+                onclick="clearDB();">Clear Entire
+                Database</button>
+              <button class="button button4" style="background-color: #555555;" id="clearAttendance" type="button"
+                onclick="clearAttendance();">Clear
+                Today's Attendance</button>
+            </td>
+            <td style="text-align:center">For customizations, please visit <a href="https://www.cloint.com/"
+                target="_blank">Cloint
+                LLC</a></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    <canvas id="myoutput" width="96" height="96" style="max-width: 100%" hidden></canvas>
+    <div id="targetNames" hidden> </div>
+  </body>
+
+</html>

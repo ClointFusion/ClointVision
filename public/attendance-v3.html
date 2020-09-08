@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="shortcut icon" href="https://cloint-vision.appspot.com/favicon.ico" async defer>
+    <link rel="icon" href="https://cloint-vision.appspot.com/favicon.ico" type="image/x-icon" async defer>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Cloint Vision</title>
+    <script src="./face-api.min.js"></script>
+    <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+    <script src="./bootbox.min.js"></script>
+<style>
+
+    body{
+        margin:0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        width: 100vw;
+      }
+
+canvas {
+  position: absolute;
+}
+
+</style>
+<script>
+  !function(){function e(t,o){return n?void(n.transaction("s").objectStore("s").get(t).onsuccess=function(e){var t=e.target.result&&e.target.result.v||null;o(t)}):void setTimeout(function(){e(t,o)},100)}var t=window.indexedDB||window.mozIndexedDB||window.webkitIndexedDB||window.msIndexedDB;if(!t)return void console.error("indexDB not supported");var n,o={k:"",v:""},r=t.open("d2",1);r.onsuccess=function(e){n=this.result},r.onerror=function(e){console.error("indexedDB request error"),console.log(e)},r.onupgradeneeded=function(e){n=null;var t=e.target.result.createObjectStore("s",{keyPath:"k"});t.transaction.oncomplete=function(e){n=e.target.db}},window.ldb={get:e,set:function(e,t){o.k=e,o.v=t,n.transaction("s","readwrite").objectStore("s").put(o)}}}();
+  var present_list = {};
+  var sl_no = 0;
+  var count = parseInt(window.localStorage.getItem("count"));
+</script>
+
+<script>
+  async function getValue(num)
+  {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        ldb.get(num, function (value) {
+          resolve(value);
+        });
+      }, 3000);
+    });
+  }
+  
+  async function getLabeledFaceDescriptors(){
+   return new Promise(resolve => {
+      setTimeout(async() => {
+    var FINALVECTORS = [];    
+    if (!count){
+    count =0;
+     }
+    //console.log(len);
+    for (var i = 1; i <= count; i++) {
+        const fd =  await getValue(i);
+        let ppname = JSON.parse(fd)[0];
+        let plfd = JSON.parse(fd)[1];
+        const jsonFD = [new Float32Array(Object.values(plfd))];
+        const json_fd = [new faceapi.LabeledFaceDescriptors(ppname, jsonFD)];        
+        FINALVECTORS.push(json_fd);
+      }
+     resolve(FINALVECTORS);
+   },5000);
+  });
+  }
+</script>
+
+<script>                    
+function addZero(i) {
+  if (i < 10) {
+    i = "0" + i;
+  }
+  return i;
+};
+
+  Promise.all([
+  getLabeledFaceDescriptors(),
+  faceapi.nets.tinyFaceDetector.loadFromUri(""),
+  faceapi.nets.faceLandmark68Net.loadFromUri(""),
+  faceapi.nets.faceRecognitionNet.loadFromUri("")
+  
+]).then(startVideo);
+
+  const constraints = {
+    video: true
+  };
+  async function startVideo(lfd) {
+    var labeledFaceDescriptors1 = [];
+    len = localStorage["count"];
+    for (var i = 0; i < len; i++) {
+     labeledFaceDescriptors1.push(lfd[0][i][0]);
+    }
+    //dialog.modal('hide');
+    const video = document.querySelector('video');
+    navigator.mediaDevices.getUserMedia(constraints).
+    then((stream) => {video.srcObject = stream});
+  
+    video.addEventListener('play',() => {
+    
+    dialog.modal('hide');
+    const canvas = faceapi.createCanvasFromMedia(video);
+    
+    const displaySize = {width: video.width, height: video.height}
+    
+    document.body.append(canvas);
+
+    faceapi.matchDimensions(canvas,displaySize);
+
+    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320,scoreThreshold : 0.6 });
+
+    setInterval(async () => {
+    
+    //const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceExpressions().withAgeAndGender().withFaceDescriptors();
+    const detections = await faceapi.detectAllFaces(video, options).withFaceLandmarks().withFaceDescriptors();
+    
+    const resizedDetections = faceapi.resizeResults(detections, displaySize);
+
+    canvas.getContext('2d').clearRect(0,0,canvas.width, canvas.height);
+
+    //faceapi.draw.drawDetections(canvas, resizedDetections);
+
+    //faceapi.draw.drawFaceExpressions(canvas,resizedDetections);
+    
+    (async () => {
+      if (labeledFaceDescriptors1.length > 0 ){
+
+      const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors1, 0.6);      
+      
+      const results = resizedDetections.map(fd => faceMatcher.findBestMatch(fd.descriptor));
+      
+              results.forEach((bestMatch, i) => {
+              
+              const box = resizedDetections[i].detection.box;
+              let text = bestMatch.toString();
+              console.log(text);
+              
+              text = text.replace("(", "");
+              text = text.replace(")", ""); 
+
+              var fields = text.split(' ');
+              var lengths = fields.length;
+              
+              let split_name = "";
+              let split_percentage = "";
+
+              if (lengths == 3) {
+                split_name = fields[0] + " " + fields[1];
+                split_percentage = fields[2];
+              }
+              else if(lengths == 2){
+                split_name = fields[0];
+                split_percentage = fields[1];
+              }
+
+              console.log(split_name);
+              console.log(split_percentage);
+
+              let wish = "";
+              
+              //split_percentage = split_percentage.replace("(", "");
+              //split_percentage = split_percentage.replace(")", "");  
+              console.log(split_name);
+              console.log(split_percentage);
+
+              let today = new Date()
+              let curHr = today.getHours()
+  
+              if (split_name != "unknown") {
+                if (curHr < 12) {
+                    wish = 'Good morning ' + split_name;
+                } else if (curHr < 18) {
+                    wish = 'Good afternoon ' + split_name;
+                } else {
+                    wish = 'Good evening ' + split_name;
+                }
+              }
+
+              if (split_name != 'unknown' && !(split_name in present_list)) {
+                sl_no = sl_no + 1;
+                present_list[split_name] = sl_no; //store in memory 
+                document.getElementById("msg").value=wish;
+                console.log(wish);
+                swal({title:"Cloint Vision",text:wish,type: "success",timer: 1000}).then(() => speakButton.click());
+                
+              }
+              const drawBox = new faceapi.draw.DrawBox(box, { label: text });
+              //drawBox.draw(canvas);
+              });
+            }
+            else
+            {
+              if (unknow_name && resizedDetections.length >0) { 
+              console.log(unknow_name);
+              console.log(resizedDetections);
+              count = count + 1;
+              window.localStorage.setItem("count", count);
+              const jsonFD = resizedDetections[0].descriptor;
+              console.log(jsonFD);
+              const json_fd = [unknow_name, jsonFD];
+              ldb.set(count, JSON.stringify(json_fd));
+              const json_fd1 = new faceapi.LabeledFaceDescriptors(unknow_name, [jsonFD]);        
+              labeledFaceDescriptors1.push(json_fd1);
+              unknow_name = "";
+            }
+          }
+          
+  })();
+},1000)
+  })
+}
+
+function playthis(){
+    readmsg = document.getElementById("msg").value;
+    console.log(readmsg);
+    const ut = new SpeechSynthesisUtterance(readmsg);
+    speechSynthesis.speak(ut);
+    }
+
+</script>
+</head>
+<body>
+  <script>
+    var dialog = bootbox.dialog({
+      message: '<p class="text-center mb-0"><i class="fa fa-spin fa-cog"></i> Please wait while we get ready...</p>',
+      closeButton: false
+  });
+  </script>
+
+<script>
+
+
+</script>
+<video id="video" width="100%" height="100%" autoplay muted></video>
+<button id="speakButton" onclick="playthis();" hidden>wish me</button>
+<input type="text" id="msg" value="" hidden>
+
+</body>
+</html>

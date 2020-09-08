@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="shortcut icon" href="https://cloint-vision.appspot.com/favicon.ico">
+    <link rel="icon" href="https://cloint-vision.appspot.com/favicon.ico" type="image/x-icon">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Cloint Vision</title>
+    <script src="./face-api.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootbox.js/5.4.0/bootbox.min.js"></script>
+
+<style>
+body{
+  margin:0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: fixed;
+  align-items: fixed;
+}
+
+canvas {
+position: fixed;
+}
+
+</style>
+<script>
+  !function(){function e(t,o){return n?void(n.transaction("s").objectStore("s").get(t).onsuccess=function(e){var t=e.target.result&&e.target.result.v||null;o(t)}):void setTimeout(function(){e(t,o)},100)}var t=window.indexedDB||window.mozIndexedDB||window.webkitIndexedDB||window.msIndexedDB;if(!t)return void console.error("indexDB not supported");var n,o={k:"",v:""},r=t.open("d2",1);r.onsuccess=function(e){n=this.result},r.onerror=function(e){console.error("indexedDB request error"),console.log(e)},r.onupgradeneeded=function(e){n=null;var t=e.target.result.createObjectStore("s",{keyPath:"k"});t.transaction.oncomplete=function(e){n=e.target.db}},window.ldb={get:e,set:function(e,t){o.k=e,o.v=t,n.transaction("s","readwrite").objectStore("s").put(o)}}}();
+  var present_list = {};
+  var unknow_name ="";
+  var sl_no = 0;
+  var count = parseInt(window.localStorage.getItem("count"));
+</script>
+
+<script>
+  async function getValue(num)
+  {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        ldb.get(num, function (value) {
+          //console.log(value);
+          resolve(value);
+        });
+      }, 3000);
+    });
+  }
+  
+  async function getLabeledFaceDescriptors(){
+   return new Promise(resolve => {
+      setTimeout(async() => {
+    var FINALVECTORS = [];
+//    len = localStorage["count"];
+    
+    if (!count){
+    count =0;
+    
+    var bbox = bootbox.prompt({
+      title: "Please enter your name", 
+      centerVertical: true,
+      callback: function(result){ 
+          console.log(result);
+          unknow_name = result;
+      }
+     });
+     }
+    //console.log(len);
+    for (var i = 1; i <= count; i++) {
+        const fd =  await getValue(i);
+        let ppname = JSON.parse(fd)[0];
+        let plfd = JSON.parse(fd)[1];
+        //console.log("THIS");
+        //console.log(plfd);
+        const jsonFD = [new Float32Array(Object.values(plfd))];
+        const json_fd = [new faceapi.LabeledFaceDescriptors(ppname, jsonFD)];        
+        FINALVECTORS.push(json_fd);
+      }
+     resolve(FINALVECTORS);
+   },5000);
+  });
+  }
+</script>
+
+<script>        
+// do something in the background
+            
+function addZero(i) {
+  if (i < 10) {
+    i = "0" + i;
+  }
+  return i;
+};
+
+  Promise.all([
+  getLabeledFaceDescriptors(),
+  faceapi.nets.tinyFaceDetector.loadFromUri(""),
+  faceapi.nets.faceLandmark68Net.loadFromUri(""),
+  faceapi.nets.faceRecognitionNet.loadFromUri(""),
+  faceapi.nets.faceExpressionNet.loadFromUri(""),
+  faceapi.nets.ageGenderNet.loadFromUri("")
+  
+]).then(startVideo);
+
+  const constraints = {
+    video: true
+  };
+  async function startVideo(lfd) {
+    var labeledFaceDescriptors1 = [];
+    len = localStorage["count"];
+    for (var i = 0; i < len; i++) {
+     labeledFaceDescriptors1.push(lfd[0][i][0]);
+    }
+    //dialog.modal('hide');
+    const video = document.querySelector('video');
+    navigator.mediaDevices.getUserMedia(constraints).
+    then((stream) => {video.srcObject = stream});
+  
+    video.addEventListener('play',() => {
+      dialog.modal('hide');
+    const canvas = faceapi.createCanvasFromMedia(video);
+    document.body.append(canvas);
+    const displaySize = {width: video.width, height: video.height}
+    
+    faceapi.matchDimensions(canvas,displaySize);
+
+    setInterval(async () => {
+
+    const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceExpressions().withAgeAndGender().withFaceDescriptors();
+       
+    const resizedDetections = faceapi.resizeResults(detections, displaySize);
+    //const resizedDetections = detections;
+    canvas.getContext('2d').clearRect(0,0,canvas.width, canvas.height);
+    faceapi.draw.drawDetections(canvas, resizedDetections);
+
+    faceapi.draw.drawFaceExpressions(canvas,resizedDetections);
+    
+    resizedDetections.forEach(result => {
+    const { age, gender, genderProbability } = result
+    new faceapi.draw.DrawTextField(
+    [
+      `${faceapi.utils.round(age, 0)} years`,
+      `${gender} (${faceapi.utils.round(genderProbability)})`
+    ],
+    result.detection.box.bottomRight
+    ).draw(canvas)
+    });
+    
+    (async () => {
+      if (labeledFaceDescriptors1.length > 0 ){
+        //console.log('Check');
+        console.log(labeledFaceDescriptors1);
+      const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors1);
+      
+      
+      const results = resizedDetections.map(fd => faceMatcher.findBestMatch(fd.descriptor));
+      
+              results.forEach((bestMatch, i) => {
+              const box = resizedDetections[i].detection.box;
+              let text = bestMatch.toString();
+              var fields = text.split(' ');
+              let split_name = fields[0];
+              let split_percentage = fields[1];
+              split_percentage = split_percentage.replace("(", "");
+              split_percentage = split_percentage.replace(")", "");  
+              console.log(split_name);
+              console.log(split_percentage);
+
+              let today = new Date()
+              let curHr = today.getHours()
+  
+              if (text != "unknown") {
+                if (curHr < 12) {
+                  text = 'Good morning, ' + text;
+                } else if (curHr < 18) {
+                  text = 'Good afternoon, ' + text;
+                } else {
+                  text = 'Good evening, ' + text;
+                }
+              }
+
+              if (split_name != 'unknown' && !(split_name in present_list)) {
+                let date = new Date();
+                let seconds = addZero(date.getSeconds());
+                let minutes = addZero(date.getMinutes());
+                let hours = addZero(date.getHours());
+                let ampm = hours >= 12 ? "PM" : "AM";
+                let arrival_time = hours + ":" + minutes + ":" + seconds + " " + ampm;
+                let table = document.getElementById("attendance");
+                let row = table.insertRow(0);
+                sl_no = sl_no + 1;
+                let cell1 = row.insertCell(0);
+                let cell2 = row.insertCell(1);
+                let cell3 = row.insertCell(2);
+                cell1.innerHTML = sl_no;
+                cell2.innerHTML = split_name;
+                cell3.innerHTML = arrival_time;
+                present_list[split_name] = arrival_time; //store in memory 
+              }
+
+              const drawBox = new faceapi.draw.DrawBox(box, { label: text });
+              drawBox.draw(canvas);
+
+              //console.log("1");
+              //console.log(resizedDetections);
+             // console.log("2");
+              //if unknown % is more than 90% then add it to local storage
+
+              if (split_name == "unknown" && split_percentage >= 0.80){ 
+              let count = parseInt(window.localStorage.getItem("count"));
+              unknow_name = "";
+              var bbox = bootbox.prompt({
+                title: "New face / known face in new avatar. Please enter a name for this face: ", 
+                centerVertical: true,
+                callback: function(result){ 
+                    console.log(result);
+                    unknow_name = result;
+                }
+               });
+              setTimeout(function() {
+                // be careful not to call box.hide() here, which will invoke jQuery's hide method
+                bbox.modal('hide');
+              }, 8000);
+              if (unknow_name){
+              window.localStorage.setItem("count", count);
+              const jsonFD = resizedDetections[i].descriptor;
+              const json_fd = [unknow_name, jsonFD];
+              ldb.set(count, JSON.stringify(json_fd));
+              const json_fd1 = new faceapi.LabeledFaceDescriptors(unknow_name, [jsonFD]);        
+              labeledFaceDescriptors1.push(json_fd1);
+              unknow_name="";
+              }
+            }
+              });
+            }
+            else
+            {
+              if (unknow_name && resizedDetections.length >0) { 
+              console.log(unknow_name);
+              console.log(resizedDetections);
+              count = count + 1;
+              window.localStorage.setItem("count", count);
+              const jsonFD = resizedDetections[0].descriptor;
+              console.log(jsonFD);
+              const json_fd = [unknow_name, jsonFD];
+              ldb.set(count, JSON.stringify(json_fd));
+              const json_fd1 = new faceapi.LabeledFaceDescriptors(unknow_name, [jsonFD]);        
+              labeledFaceDescriptors1.push(json_fd1);
+              unknow_name = "";
+            }
+          }
+  })();
+},100)
+  })
+}
+
+
+function clearDB()
+{
+  bootbox.confirm({
+    message: "This action will delete your database (all faces) ! Are you sure ?",
+    buttons: {
+        confirm: {
+            label: 'Yes',
+            className: 'btn-success'
+        },
+        cancel: {
+            label: 'No',
+            className: 'btn-danger'
+        }
+    },
+    callback: function (result) {
+        console.log(result);
+        if(result)
+        {
+          window.localStorage.setItem("count", 0);
+          labeledFaceDescriptors1 = []; //cleared
+          present_list = [];
+          sl_no = 0;
+          bootbox.alert({
+            message: "Database cleared !. You can add new faces in a while...",
+            className: 'rubberBand animated'
+        });
+        window.location.reload();
+        }
+    }
+});
+}
+</script>
+</head>
+<body>
+  <script>
+    var dialog = bootbox.dialog({
+      message: '<p class="text-center mb-0"><i class="fa fa-spin fa-cog"></i> Please wait while we get ready...</p>',
+      closeButton: false
+  });
+  </script>
+
+<table class="table table-bordered" width="100%" height="100%">
+  <tr><td class="table-primary" align="center">Cloint Vision is waiting to welcome your employees..</td>     
+    <td id="tdate" class="table-primary"><strong>
+    <script>
+      document.getElementById("tdate").innerHTML = new Date();
+    </script></strong>
+</td></tr>
+<tr><td align="center"><video id="video" height="450" width="720" autoplay muted></video></td>
+  <td align="center">
+    <table align="center" class="table-responsive" id="attendance" width="50%" height="100%">
+    </table>
+
+  </td> </tr>
+  <tr>
+    <td align="center"><button id="deleteDB" class="btn btn-danger" onclick="clearDB();">Clear Database</button></td>
+    <td align="center"><a target="_blank" href="https://www.cloint.com">For customizations, please visit us at CLOINT LLC</a></td>
+  </tr>
+</table>
+
+</body>
+</html>
