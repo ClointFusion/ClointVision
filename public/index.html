@@ -135,7 +135,7 @@ function loadHTMLTable(){
 }
   async function loadClient() {
       //console.log("Loaded");
-    gapi.client.setApiKey("AIzaSyDghGBuSE4Do8B9J4TLj04ss1M19m0Megs");
+    gapi.client.setApiKey("YOUR KEY HERE");
     return gapi.client.load("https://content.googleapis.com/discovery/v1/apis/sheets/v4/rest")
         .then(async function() { 
           //console.log("GAPI client loaded for API");
@@ -146,7 +146,7 @@ function loadHTMLTable(){
               function(err) { console.error("Error loading GAPI client for API", err); });
   }
   gapi.load("client:auth2", function() {
-    gapi.auth2.init({client_id: "728891554044-v9dmkdmc6olh7gj37a3mqp4a38m6eqjl.apps.googleusercontent.com"});
+    gapi.auth2.init({client_id: "YOUR CLIENT ID HERE"});
   });
 
   function CreateSheet() {
