@@ -50,7 +50,7 @@ canvas {
    // if(gapi_loaded == false)
     {
      console.log("Loaded");
-  gapi.client.setApiKey("AIzaSyDghGBuSE4Do8B9J4TLj04ss1M19m0Megs");
+  gapi.client.setApiKey("YOUR API KEY HERE");
   return gapi.client.load("https://content.googleapis.com/discovery/v1/apis/sheets/v4/rest")
       .then(function() { console.log("GAPI client loaded for API");
       //gapi_loaded = true;
@@ -96,7 +96,7 @@ canvas {
               function(err) { console.error("Execute error", err); });
   }
   gapi.load("client:auth2", function() {
-    gapi.auth2.init({client_id: "728891554044-v9dmkdmc6olh7gj37a3mqp4a38m6eqjl.apps.googleusercontent.com"});
+    gapi.auth2.init({client_id: "YOUR CLIENT ID HERE"});
   });
 
   async function getValue(num)
