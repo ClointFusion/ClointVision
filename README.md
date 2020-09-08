@@ -1,8 +1,8 @@
-## Welcome to Cloint Vision's Face Recognition based Employee Attendance System
+## ClointVision Face Recognition based Employee Attendance System
 
 <img src="https://1.bp.blogspot.com/-6PReDvLHoKI/X1Wqasj7ySI/AAAAAAAAAQs/Jx2vYKipYkQ4ezCcpQWS2B4pIHrqV12OgCLcBGAsYHQ/s320/Cloint_GIF.gif">
 
-## Live Application : https://cloint-vision.appspot.com
+## Live Application : <a href="https://cloint-vision.appspot.com" target="_new" rel="noopener noreferrer">Cloint-Vision</a> 
 
 ## This project is already deployed on our Google App Engine. 
 ## End Users (Non Developers): Steps to use this application on your computer:
