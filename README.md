@@ -8,7 +8,7 @@
 ## End Users (Non Developers): Steps to use this application on your computer:
 
 # 1. Please visit the web application using Google Chrome and give required permissions for Camera
-Latest Version: https://cloint-vision.appspot.com
+Latest Version: https://cloint-vision.appspot.com (Hold ctrl on keyboard and click on the link)
 
 # 2. Once your face appears on your monitor screen, enter your name and hit 'Register This Face' blue button.
 Wait till you see 'Registered ! Please add some more photos with different poses' and click OK.
