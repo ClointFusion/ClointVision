@@ -17,12 +17,12 @@ You can add few more (5 is better) photos of yours, with different poses. This i
 # 3. You may refresh the page and see your name listed as 'List of Registered Employees in your Organization' at the bottom of the page in table
 
 # 4. You may now click on 'Start Taking Attendance'.
-Please wait, while required JavaScript libraries are loaded.. And you can hear the application wishing you via voice command.
+Please wait, while required JavaScript libraries are loaded.. If you get any API error, you can directly open this link: https://cloint-vision.appspot.com/attendance.html and  you can hear the web-application wishing you via voice command. 
 
 # 5. You may also visit, old Versions:
-1) https://cloint-vision.appspot.com/index-v1.html
-2) https://cloint-vision.appspot.com/index-v2.html
-3) https://cloint-vision.appspot.com/index-v3.html
+1) https://cloint-vision.appspot.com/index-v1.html (Here, click on 'Start' button, and when you can see your face clearly, click on 'Add this face')
+2) https://cloint-vision.appspot.com/index-v2.html (Here, you can see your Name with Age & Gender Prediction)
+3) https://cloint-vision.appspot.com/index-v3.html (Very similar to current version)
 
 ## Note:
 1) All the photos are stored locally in your browser as 128 bit encodings
